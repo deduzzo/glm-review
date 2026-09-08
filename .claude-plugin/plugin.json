@@ -1,0 +1,20 @@
+{
+  "name": "glm-review",
+  "description": "Use GLM (Z.ai) from Claude Code as a cross-provider second-opinion code reviewer — like codex-review, but powered by GLM-5.3.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Roberto De Domenico",
+    "url": "https://github.com/deduzzo"
+  },
+  "homepage": "https://github.com/deduzzo/glm-review",
+  "repository": "https://github.com/deduzzo/glm-review",
+  "license": "MIT",
+  "keywords": [
+    "code-review",
+    "glm",
+    "zai",
+    "second-opinion",
+    "cross-provider",
+    "adversarial-review"
+  ]
+}

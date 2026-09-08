@@ -1,0 +1,22 @@
+{
+  "name": "glm-review",
+  "owner": {
+    "name": "deduzzo",
+    "url": "https://github.com/deduzzo"
+  },
+  "metadata": {
+    "description": "GLM second-opinion code review plugin for Claude Code.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "glm-review",
+      "description": "Use GLM (Z.ai) from Claude Code as a cross-provider second-opinion code reviewer — like codex-review, but powered by GLM-5.3.",
+      "version": "0.1.0",
+      "author": {
+        "name": "deduzzo"
+      },
+      "source": "./"
+    }
+  ]
+}
