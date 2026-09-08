@@ -29,8 +29,8 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/glm-companion.sh" doctor
    subscribers can use their coding-plan key).
 
 3. Mention the optional overrides they can add to the same config file:
-   - `GLM_REVIEW_MODEL` (default `glm-5.3`)
-   - `GLM_REVIEW_FLASH_MODEL` (default `glm-5.3-flash`, used by the `--flash` flag)
+   - `GLM_REVIEW_MODEL` (default `glm-5.3[1m]`, 1M context)
+   - `GLM_REVIEW_FLASH_MODEL` (default `glm-5.3-flash[1m]`, used by the `--flash` flag)
    - `GLM_REVIEW_BASE_URL` (default `https://api.z.ai/api/anthropic`;
      mainland China: `https://open.bigmodel.cn/api/anthropic`)
    - `GLM_REVIEW_MAX_TURNS` (default `40`)

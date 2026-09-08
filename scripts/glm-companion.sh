@@ -13,8 +13,8 @@
 # Configuration (env vars, or KEY=VALUE lines in ~/.glm-review/config):
 #   GLM_REVIEW_API_KEY      Z.ai API key (ZAI_API_KEY is also honored)
 #   GLM_REVIEW_BASE_URL     default: https://api.z.ai/api/anthropic
-#   GLM_REVIEW_MODEL        default: glm-5.3
-#   GLM_REVIEW_FLASH_MODEL  default: glm-5.3-flash (used by --flash)
+#   GLM_REVIEW_MODEL        default: glm-5.3[1m] (1M context)
+#   GLM_REVIEW_FLASH_MODEL  default: glm-5.3-flash[1m] (used by --flash)
 #   GLM_REVIEW_MAX_TURNS    default: 40
 
 set -euo pipefail
@@ -26,8 +26,8 @@ if [ -f "$CONFIG_FILE" ]; then
 fi
 
 BASE_URL="${GLM_REVIEW_BASE_URL:-https://api.z.ai/api/anthropic}"
-MODEL="${GLM_REVIEW_MODEL:-glm-5.3}"
-FLASH_MODEL="${GLM_REVIEW_FLASH_MODEL:-glm-5.3-flash}"
+MODEL="${GLM_REVIEW_MODEL:-glm-5.3[1m]}"
+FLASH_MODEL="${GLM_REVIEW_FLASH_MODEL:-glm-5.3-flash[1m]}"
 MAX_TURNS="${GLM_REVIEW_MAX_TURNS:-40}"
 API_KEY="${GLM_REVIEW_API_KEY:-${ZAI_API_KEY:-}}"
 

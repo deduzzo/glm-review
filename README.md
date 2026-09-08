@@ -167,9 +167,9 @@ Every review can run on either model:
 
 | Model | Default id | When |
 |---|---|---|
-| **GLM-5.3** | `glm-5.3` | default — deeper, more thorough review |
-| **GLM-5.3-Flash** | `glm-5.3-flash` | `--flash` — faster and cheaper, lighter review |
-| any other | via `--model <id>` | e.g. `--model "glm-5.3[1m]"` for the 1M-context variant |
+| **GLM-5.3** | `glm-5.3[1m]` | default — deeper review, 1M context window |
+| **GLM-5.3-Flash** | `glm-5.3-flash[1m]` | `--flash` — faster and cheaper, 1M context window |
+| any other | via `--model <id>` | e.g. `--model glm-5.2` or plain `--model glm-5.3` (200k) |
 
 With no model flag, the command asks which model to use (same dialog as the wait/background question). Defaults are configurable via `GLM_REVIEW_MODEL` and `GLM_REVIEW_FLASH_MODEL`.
 
@@ -194,8 +194,8 @@ Set environment variables, or put `KEY=VALUE` lines in `~/.glm-review/config` (r
 |---|---|---|
 | `GLM_REVIEW_API_KEY` | — | Z.ai API key (`ZAI_API_KEY` also honored) |
 | `GLM_REVIEW_BASE_URL` | `https://api.z.ai/api/anthropic` | Mainland China: `https://open.bigmodel.cn/api/anthropic` |
-| `GLM_REVIEW_MODEL` | `glm-5.3` | default review model |
-| `GLM_REVIEW_FLASH_MODEL` | `glm-5.3-flash` | model used by `--flash` |
+| `GLM_REVIEW_MODEL` | `glm-5.3[1m]` | default review model (1M context) |
+| `GLM_REVIEW_FLASH_MODEL` | `glm-5.3-flash[1m]` | model used by `--flash` (1M context) |
 | `GLM_REVIEW_MAX_TURNS` | `40` | upper bound on the reviewer's agentic turns |
 | `GLM_REVIEW_CONFIG` | `~/.glm-review/config` | alternate config file location |
 
@@ -230,12 +230,12 @@ Reviewers are explicitly instructed to say *"no significant issues"* rather than
 |---|---|
 | `no API key found` | run `/glm-review:setup`, or export `GLM_REVIEW_API_KEY` |
 | ping fails with auth error | wrong/expired key — regenerate at [z.ai](https://z.ai/manage-apikey/apikey-list) |
-| ping fails with model error | your plan may use different ids — try `GLM_REVIEW_MODEL='glm-5.3[1m]'` |
+| ping fails with model error | your plan may use different ids — try `GLM_REVIEW_MODEL='glm-5.3'` (without the `[1m]` suffix) |
 | slow / truncated from mainland China | set `GLM_REVIEW_BASE_URL=https://open.bigmodel.cn/api/anthropic` |
 | `could not detect a base branch` | pass `--base origin/<branch>` explicitly |
 | `working tree is clean — nothing to review` | commit state is clean; use `--scope branch` or make changes |
 | review stops early | raise `GLM_REVIEW_MAX_TURNS` (large diffs need more agentic turns) |
-| `"glm-5.3" isn't described by this version's model catalog` warning | harmless — Claude Code doesn't know GLM ids and assumes a 200k context; ignore it, or set `GLM_REVIEW_MODEL='glm-5.3[1m]'` for the 1M-context variant |
+| `isn't described by this version's model catalog` warning | harmless — Claude Code doesn't know GLM ids; the `[1m]` suffix in the default ids already unlocks the 1M context window |
 | foreground review times out | use `--background` (foreground runs are bounded by the Bash tool timeout) |
 
 ## Development and testing
