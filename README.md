@@ -235,6 +235,7 @@ Reviewers are explicitly instructed to say *"no significant issues"* rather than
 | `could not detect a base branch` | pass `--base origin/<branch>` explicitly |
 | `working tree is clean — nothing to review` | commit state is clean; use `--scope branch` or make changes |
 | review stops early | raise `GLM_REVIEW_MAX_TURNS` (large diffs need more agentic turns) |
+| `"glm-5.3" isn't described by this version's model catalog` warning | harmless — Claude Code doesn't know GLM ids and assumes a 200k context; ignore it, or set `GLM_REVIEW_MODEL='glm-5.3[1m]'` for the 1M-context variant |
 | foreground review times out | use `--background` (foreground runs are bounded by the Bash tool timeout) |
 
 ## Development and testing
