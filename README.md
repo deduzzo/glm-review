@@ -92,6 +92,21 @@ Then configure and verify:
 /glm-review:setup
 ```
 
+The same commands work from a terminal (`claude plugin marketplace add deduzzo/glm-review`, `claude plugin install glm-review@glm-review`).
+
+<details>
+<summary>Install from the Gitea mirror instead of GitHub</summary>
+
+The marketplace source can be any git URL:
+
+```
+/plugin marketplace add https://dev.asp.messina.it/asp5_messina/glm-review.git
+/plugin install glm-review@glm-review
+/reload-plugins
+```
+
+</details>
+
 <details>
 <summary>Install from a local clone (development)</summary>
 
@@ -101,6 +116,36 @@ claude --plugin-dir ./glm-review
 ```
 
 </details>
+
+### On another machine or another Claude Code version
+
+The plugin ships no binaries: the only moving part is the `claude` CLI itself, and the reviewer relies on a handful of its flags (see [Requirements](#requirements)). After installing on a new machine, or after updating Claude Code, run the doctor with a live ping:
+
+```
+/glm-review:setup --ping
+```
+
+and check its report:
+
+| Line | Meaning |
+|---|---|
+| `CLI flags  : OK` | this Claude Code supports every flag the reviewer uses |
+| `CLI flags  : MISSING ...` | Claude Code is too old — run `claude update` and try again; reviews refuse to start until this passes |
+| `API key    : ... [from ...]` | which key is in use and where it comes from |
+| `status     : OK` | GLM answered through the configured endpoint |
+| `sandbox    : OK` | the isolated session refused to write a file — safe to use |
+| `sandbox    : FAILED` | this Claude Code version let the reviewer write a file: do not use glm-review with it until an update fixes it |
+
+The API key is per machine: set `GLM_REVIEW_API_KEY` in the environment or create `~/.glm-review/config` there (see [Configuration](#configuration)); if the claude-glm wrapper kit is installed on that machine, its key is reused automatically.
+
+### Updating
+
+```
+/plugin marketplace update glm-review
+/plugin update glm-review@glm-review
+```
+
+Restart Claude Code to apply the update, then re-run `/glm-review:setup --ping`.
 
 ## Quick start
 
