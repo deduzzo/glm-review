@@ -41,7 +41,7 @@ This plugin wires that cross-provider loop into Claude Code as slash commands, e
 - ⚔️ **`/glm-review:adversarial-review`** — steerable review that actively tries to *break confidence* in the change
 - ⚡ **Model choice per run** — GLM-5.3 (deeper) or GLM-5.3-Flash (faster/cheaper), interactively or via flags
 - 🕵️ **Agentic review, not diff-glancing** — the reviewer explores your repository (reads files, follows call sites, checks `git log`/`blame`) before judging
-- 🔒 **Read-only by construction** — the reviewer runs with an explicit tool allowlist: no writes, no network, no subagents
+- 🔒 **Read-only and isolated by construction** — the reviewer runs in a sandboxed headless session: no user/project settings, hooks, plugins, MCP servers or slash commands; a hard-capped toolset (Read/Glob/Grep + read-only git); anything else is denied
 - 🧾 **Structured output** — severity-ranked findings (P0–P3) with `file:line` references and a final verdict
 - 🪶 **Zero extra dependencies** — no additional CLI to install: if you have Claude Code and a Z.ai key, you have everything
 - 🔑 **Zero-config with claude-glm** — automatically reuses the key saved by the `claude-glm` wrapper kit if present
@@ -57,7 +57,7 @@ This plugin wires that cross-provider loop into Claude Code as slash commands, e
                                                              │ headless
                                                              ▼
                                               ┌──────────────────────────────┐
-        https://api.z.ai/api/anthropic  ◄──── │  claude -p  (read-only)      │
+        https://api.z.ai/api/anthropic  ◄──── │  claude -p  (isolated, r/o)  │
         (Anthropic-compatible endpoint,       │  ANTHROPIC_BASE_URL → Z.ai   │
          GLM-5.3 / GLM-5.3-Flash)             │  tools: Read/Grep/Glob/git   │
                                               └──────────────┬───────────────┘
@@ -67,13 +67,13 @@ This plugin wires that cross-provider loop into Claude Code as slash commands, e
                                               returned to your session verbatim
 ```
 
-The trick: the GLM Coding Plan exposes an **Anthropic-compatible API**, so Claude Code itself can act as the harness for the GLM reviewer. The plugin launches a headless `claude -p` instance with the environment pointed at Z.ai, restricted to read-only tools, running in your repository. No separate CLI, no app server.
+The trick: the GLM Coding Plan exposes an **Anthropic-compatible API**, so Claude Code itself can act as the harness for the GLM reviewer. The plugin launches a headless `claude -p` instance with the environment pointed at Z.ai, isolated from your Claude Code configuration (settings, hooks, plugins, MCP servers) and restricted to read-only tools, running in your repository. No separate CLI, no app server.
 
 ## Requirements
 
 | Requirement | Notes |
 |---|---|
-| [Claude Code](https://claude.com/claude-code) | the `claude` binary on your `PATH` |
+| [Claude Code](https://claude.com/claude-code) | the `claude` binary on your `PATH`, recent enough to support the isolation flags the reviewer relies on (`--setting-sources`, `--strict-mcp-config`, `--permission-mode`, `--tools`, ...); tested with 2.1.266. `/glm-review:setup` runs a doctor that checks them and tells you to `claude update` if any is missing |
 | Z.ai API key | [GLM Coding Plan](https://z.ai/subscribe) subscription or pay-as-you-go key from [z.ai](https://z.ai/manage-apikey/apikey-list) |
 | `git` | reviews are resolved against local git state |
 | macOS / Linux | the companion script is POSIX-friendly bash (works on macOS's bash 3.2) |
@@ -136,6 +136,8 @@ Reviews your local git state. With no arguments it auto-detects the scope (dirty
 
 The review is **review-only**: findings are reported verbatim and nothing is ever fixed automatically. Read the review, then decide what to act on.
 
+Foreground runs (`--wait`) are bounded by the host Bash tool timeout (10 minutes). A full GLM-5.3 review of a non-trivial change can take that long, so prefer `--background` (or `--flash` for a quick pass).
+
 ### `/glm-review:adversarial-review`
 
 Same mechanics, opposite stance: the reviewer's explicit job is to break confidence in the change — hidden assumptions, failure modes, edge cases, security issues, simpler designs that were ignored. Any free text becomes focus instructions:
@@ -148,7 +150,7 @@ Same mechanics, opposite stance: the reviewer's explicit job is to break confide
 
 ### `/glm-review:setup`
 
-Runs the doctor (shows CLI, key status — masked —, endpoint, models), guides you through storing the key, and verifies the connection with a live ping:
+Runs the doctor (shows CLI version and flag support, key status — masked — and its source, endpoint, models), guides you through storing the key, and verifies the connection with a live ping. The ping doubles as a **sandbox check**: the reviewer is asked to write a temporary file through an allowlisted git command plus a shell redirection, and the doctor reports `sandbox : OK` only if the permission layer denied it and no file appeared — run it after every Claude Code update.
 
 ```
 /glm-review:setup
@@ -171,7 +173,7 @@ Every review can run on either model:
 | **GLM-5.3-Flash** | `glm-5.3-flash[1m]` | `--flash` — faster and cheaper, 1M context window |
 | any other | via `--model <id>` | e.g. `--model glm-5.2` or plain `--model glm-5.3` (200k) |
 
-With no model flag, the command asks which model to use (same dialog as the wait/background question). Defaults are configurable via `GLM_REVIEW_MODEL` and `GLM_REVIEW_FLASH_MODEL`.
+With no model flag, the command asks which model to use (same dialog as the wait/background question): the default model or the flash one. Defaults are configurable via `GLM_REVIEW_MODEL` and `GLM_REVIEW_FLASH_MODEL`; the dialog always maps to whatever ids you configured.
 
 ## Review scopes and flags
 
@@ -182,13 +184,13 @@ Both review commands accept:
 | `--scope auto` | *(default)* working tree if dirty, otherwise branch vs. base |
 | `--scope working-tree` | staged + unstaged + untracked files |
 | `--scope branch` | everything on the current branch relative to the base ref |
-| `--base <ref>` | base ref for branch review (default: auto-detected from `origin/HEAD`, falling back to `main`/`master`) |
+| `--base <ref>` | base ref for branch review (default: auto-detected from `origin/HEAD`, falling back to `main`/`master`); ignored, with a note, when the scope resolves to working-tree |
 | `--flash` / `--model <id>` | model selection (see above) |
-| `--wait` / `--background` | skip the foreground/background question |
+| `--wait` / `--background` | skip the foreground/background question (handled by the slash command; the script accepts and ignores them) |
 
 ## Configuration
 
-Set environment variables, or put `KEY=VALUE` lines in `~/.glm-review/config` (recommended, `chmod 600`):
+Set environment variables, or put `KEY=VALUE` lines in `~/.glm-review/config` (recommended, `chmod 600`). Environment variables take precedence over the file. Every non-blank, non-comment line must look like a `[export ]KEY=VALUE` assignment, otherwise the script aborts with `invalid line(s) in ...`; the file is then evaluated once by the shell (so quote values containing spaces, and keep it to plain assignments).
 
 | Variable | Default | Notes |
 |---|---|---|
@@ -196,15 +198,18 @@ Set environment variables, or put `KEY=VALUE` lines in `~/.glm-review/config` (r
 | `GLM_REVIEW_BASE_URL` | `https://api.z.ai/api/anthropic` | Mainland China: `https://open.bigmodel.cn/api/anthropic` |
 | `GLM_REVIEW_MODEL` | `glm-5.3[1m]` | default review model (1M context) |
 | `GLM_REVIEW_FLASH_MODEL` | `glm-5.3-flash[1m]` | model used by `--flash` (1M context) |
-| `GLM_REVIEW_MAX_TURNS` | `40` | upper bound on the reviewer's agentic turns |
+| `GLM_REVIEW_MAX_TURNS` | `40` | upper bound on the reviewer's agentic turns (positive integer) |
 | `GLM_REVIEW_CONFIG` | `~/.glm-review/config` | alternate config file location |
 
 **API key resolution order:**
 
 1. `GLM_REVIEW_API_KEY` environment variable
 2. `ZAI_API_KEY` environment variable
-3. `~/.glm-review/config` file
-4. `~/.config/claude-glm/api_key` — the key saved by the [claude-glm wrapper kit](https://github.com/deduzzo), picked up automatically as a fallback (zero-config if you already use `claude-glm`)
+3. `GLM_REVIEW_API_KEY` in `~/.glm-review/config`
+4. `ZAI_API_KEY` in `~/.glm-review/config`
+5. `~/.config/claude-glm/api_key` — the key saved by the [claude-glm wrapper kit](https://github.com/deduzzo), picked up automatically as a fallback (zero-config if you already use `claude-glm`)
+
+The doctor's `API key` line reports which of these sources is in use.
 
 ## Output format
 
@@ -219,8 +224,13 @@ Reviewers are explicitly instructed to say *"no significant issues"* rather than
 
 ## Safety and privacy
 
-- The GLM reviewer is **read-only**: explicit tool allowlist (`Read`, `Glob`, `Grep`, `LS`, `git diff/log/show/status/ls-files/blame`), with `Write`/`Edit`/network tools/subagents explicitly disallowed, plus prompt-level instructions never to modify state.
+- The GLM reviewer runs in an **isolated headless session**: `--setting-sources ""` (no user or project settings, hence no hooks, plugins, permission rules or CLAUDE.md-driven surprises from the repository under review), `--strict-mcp-config` (no MCP servers), `--disable-slash-commands`, and `--no-session-persistence` (the reviewer transcript is not saved to disk and cannot be resumed).
+- It is **read-only by construction**: `--tools Read,Glob,Grep,Bash` hard-caps the built-in toolset, the allowlist pre-approves only `git diff/log/show/status/ls-files/blame`, `--permission-mode dontAsk` denies anything else that would need approval, and `Write`/`Edit`/`NotebookEdit`/`WebFetch`/`WebSearch`/`Task`/`Agent` are disallowed on top — as are the write-capable or tool-spawning forms of the allowed git commands (`--output=<file>`, `--ext-diff`, `git difftool`), since deny rules beat allow rules. The prompt-level "never modify state" instruction is the last line of defense, not the first.
+- Shell redirections to files (`>`, `>>`, `2>`) on the allowed git commands are denied by Claude Code's permission layer under `dontAsk` (verified; `/dev/null` is the only exception), and `doctor --ping` re-checks this on your installation.
+- Residual risk, by design: `git diff` honors diff drivers/textconv from *your own* git config (`diff.external`, `diff.<driver>.command`); a repository cannot set those through committed content.
+- The review prompt travels on stdin, not argv, so file names and focus text never show up in the process list.
 - The review commands are review-only: they never apply fixes.
+- Slash-command arguments are untrusted text: the command instructions require quoting every argument as its own token and refusing input that looks like shell code before invoking the script.
 - Your **code is sent to Z.ai** for review (that's the point) — don't use this plugin on repositories whose policy forbids third-party AI processing.
 - Your API key is never printed; diagnostics mask it (`sk-x…y4z (35 chars)`).
 
@@ -234,9 +244,15 @@ Reviewers are explicitly instructed to say *"no significant issues"* rather than
 | slow / truncated from mainland China | set `GLM_REVIEW_BASE_URL=https://open.bigmodel.cn/api/anthropic` |
 | `could not detect a base branch` | pass `--base origin/<branch>` explicitly |
 | `working tree is clean — nothing to review` | commit state is clean; use `--scope branch` or make changes |
+| `git diff <base>...HEAD failed: ... no merge base` | the base has no common ancestor with `HEAD` — pass the right `--base` |
+| `invalid line(s) in ~/.glm-review/config` / `could not load it` | the file may only contain `KEY=VALUE` lines; quote values containing spaces |
+| `GLM_REVIEW_MAX_TURNS must be a positive integer` | fix the value in your environment or config file |
+| `CLI flags  : MISSING ...` in the doctor / `this Claude Code version does not support: ...` | your Claude Code is too old for the reviewer's isolation flags — run `claude update` |
+| `sandbox    : FAILED` in `doctor --ping` | this Claude Code version let the reviewer write a file: do not use glm-review with it; update Claude Code and re-run the ping |
+| `config file ... is not readable` | fix the file's permissions/ownership (it should be `chmod 600`, owned by you) |
 | review stops early | raise `GLM_REVIEW_MAX_TURNS` (large diffs need more agentic turns) |
 | `isn't described by this version's model catalog` warning | harmless — Claude Code doesn't know GLM ids; the `[1m]` suffix in the default ids already unlocks the 1M context window |
-| foreground review times out | use `--background` (foreground runs are bounded by the Bash tool timeout) |
+| foreground review times out | use `--background` (foreground runs already use the maximum 10-minute Bash tool timeout) |
 
 ## Development and testing
 
@@ -249,11 +265,14 @@ claude plugin validate .
 # syntax-check the companion script
 bash -n scripts/glm-companion.sh
 
+# regression tests (stub `claude`, no API calls, bash 3.2 compatible)
+bash tests/companion-test.sh
+
 # dry-run the flow without calling the API: put a stub `claude` first in PATH
 # that echoes its args, then:
 GLM_REVIEW_API_KEY=fake bash scripts/glm-companion.sh review --scope working-tree
 
-# live end-to-end check (uses your real key, one tiny request)
+# live end-to-end check (uses your real key, one tiny request): connectivity + sandbox
 bash scripts/glm-companion.sh doctor --ping
 ```
 
@@ -269,7 +288,9 @@ glm-review/
 │   ├── adversarial-review.md
 │   └── setup.md
 ├── scripts/
-│   └── glm-companion.sh     # scope resolution, prompt building, headless launch
+│   └── glm-companion.sh     # config, scope resolution, prompt building, isolated headless launch
+├── tests/
+│   └── companion-test.sh    # stub-based regression tests for the script
 └── README.md
 ```
 
